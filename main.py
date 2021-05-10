@@ -116,7 +116,7 @@ def main():
                 #feed forward sample k through network
                 #sum the differential
 
-            #update weights and biases
+            #update weights and biases - W' = W - (1.0/N) * Del, N = batch size, del = diff vector from loss func.
 
         #print results for this epoch
         #check some stop condition (>90% accuracy)
