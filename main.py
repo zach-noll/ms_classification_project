@@ -104,6 +104,25 @@ def display_results():
 def main():
     training_labels, training_data = load_dataset('training')
     val_labels, val_data = load_dataset('validation')
+
+    #initialize weights
+
+    #for i in number of epochs
+
+        #for j in number of batches
+
+            #for k in number of samples in batch j
+
+                #feed forward sample k through network
+                #sum the differential
+
+            #update weights and biases
+
+        #print results for this epoch
+        #check some stop condition (>90% accuracy)
+
+    #display results
+
     return
 
 
