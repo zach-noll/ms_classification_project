@@ -16,39 +16,58 @@ import os
 
 ########################################################################################################################
 def normalize_image(image):
-    # Min - max normalization to 0-1 range.
+    """Min - max normalization of gray levels to 0-1 range."""
     min_value = image.min()
     max_value = image.max()
     normalized_im = (image - min_value) / (max_value - min_value)
     return normalized_im
 
 
-def get_label(image_name):
-
+def get_labels(image_name):
+    """
+    This function defines a numeric label to an image according to it's name, given as the input. A positive image
+    gets numeric label of 1, and a negative image gets numeric label of 0
+    """
+    string_label = image_name.split('_')[0]
+    if string_label == 'neg':
+        label = 0
+    elif string_label == 'pos':
+        label = 1
+    else:
+        print("image name must contain 'pos' or 'neg' for defining image label")
     return label
 
 
-def faltten_image():
-
-    return flattened_im
-
-
 def load_dataset(kind_of_set):
-    # TODO: load the training and validation sets
-
-    # Get the path of current working directory
-    curr_path = os.getcwd()
+    """
+    This function prepares the raw data set before entering to forward propagation stage.
+    :param kind_of_set: indicates the name of the relevant data set, can be 'train' or 'validation'.
+    :return: labels_list is a column vector which contains the label of each image in the raw data set.
+             matrix_of_im_data is a matrix which it's columns contains the gray levels of each raw image in the input
+             set after normalization to range 0-1, and flattening to a column vector.
+    """
     relevant_folder_path = os.path.join('.', kind_of_set)
-    for img_name in os.listdir(relevant_folder_path):
-        img_path = os.path.join(relevant_folder_path, img_name)
-        curr_img = cv2.imread(img_path, 0)
+    list_of_files = os.listdir(relevant_folder_path)
+    # Initialize outputs
+    labels_list = np.zeros((len(list_of_files), 1))
+    matrix_of_im_data = np.zeros((1024, len(list_of_files)))
+    for idx, im_name in enumerate(list_of_files):
+        im_path = os.path.join(relevant_folder_path, im_name)
+        curr_im = cv2.imread(im_path, 0)
+        curr_label = get_labels(im_name)
+        if curr_label == 1:
+            labels_list[idx, 0] = curr_label
         # Min-max normalization to 0-1 range
-        normalized_im = normalize_image(image)
-    pass
+        normalized_im = normalize_image(curr_im)
+        # Flattening image
+        flattened_im = normalized_im.flatten(order='C')
+        matrix_of_im_data[:, idx] = flattened_im.transpose()
+    return labels_list, matrix_of_im_data
 
 
 def prepare_data():
     # TODO: prepare the data according to our network - divide the data into training set and validation set (20/80)??
+    # we don't need that function
     pass
 
 
@@ -83,7 +102,8 @@ def display_results():
 
 
 def main():
-    load_dataset('training')
+    training_labels, training_data = load_dataset('training')
+    val_labels, val_data = load_dataset('validation')
     return
 
 
