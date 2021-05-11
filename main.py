@@ -3,15 +3,17 @@ from matplotlib import pyplot as plt
 import cv2
 import os
 
+
 ########################################################################################################################
 
 
-#TODO: Hyperparameters that we need to test:
+# TODO: Hyperparameters that we need to test:
 #      - minibatch size
 #      - learning rate
 #      - loss function
 #      - activation function
 #      - hidden layer size
+
 
 
 ########################################################################################################################
@@ -71,9 +73,19 @@ def prepare_data():
     pass
 
 
-def init_weights():
-    # TODO: initialize the weights matrices, add biases (initialize these to 1??)
-    pass
+def init_weights(weight_dim, seed = 3):
+    """
+    Initializes the weight matrices
+    :param weight_dim: dimensions are [number input features, number of hidden nodes, number of output nodes] in our case
+    this is [512, H (hyperparameter), 1]
+    :param seed: for random number generation, set default to 3
+    :return: w1, w2, b1, b2 - weights and biases for layers 1 and 2
+    """
+    w1 = np.random.randn(weight_dim[1],weight_dim[0]) * np.sqrt(2/weight_dim[0])
+    w2 = np.random.randn(weight_dim[2],weight_dim[1]) * np.sqrt(2/weight_dim[1])
+    b1 = np.zeros((weight_dim[1],1))
+    b2 = np.zeros((weight_dim[2],1))
+    return w1, w2, b1, b2
 
 
 def forward_pass():
@@ -104,7 +116,9 @@ def display_results():
 def main():
     training_labels, training_data = load_dataset('training')
     val_labels, val_data = load_dataset('validation')
-
+    weight_dim = [1024, 10, 1]
+    w1, w2, b1, b2 = init_weights(weight_dim)
+    print("")
     #initialize weights
 
     #for i in number of epochs
