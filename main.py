@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 import os
+import math
 
 
 ########################################################################################################################
@@ -13,7 +14,11 @@ import os
 #      - loss function
 #      - activation function
 #      - hidden layer size
-
+BATCH_SIZE= 16 #needs to be multiple of 2
+LR = 0.01
+LOSS_FUNC = 'BCE'
+ACTIV_FUNC = 'sigmoid'
+HIDDEN_LAYER = 100
 
 
 ########################################################################################################################
@@ -64,13 +69,18 @@ def load_dataset(kind_of_set):
         # Flattening image
         flattened_im = normalized_im.flatten(order='C')
         matrix_of_im_data[:, idx] = flattened_im.transpose()
-    return labels_list, matrix_of_im_data
+    return labels_list.T, matrix_of_im_data.T
 
 
-def prepare_data():
-    # TODO: prepare the data according to our network - divide the data into training set and validation set (20/80)??
-    # we don't need that function
-    pass
+def prepare_data(data, labels):
+    # TODO: prepare the data according to our network - concatenate the data and labels, then shuffle the samples
+    """
+
+    :param data: This is the data matrix from function load_dataset
+    :param labels: This is the label vector that matches the data matrix
+    :return: The matrix and label vector concatenated and shuffled
+    """
+    return
 
 
 def init_weights(weight_dim, seed = 3):
@@ -87,10 +97,17 @@ def init_weights(weight_dim, seed = 3):
     b2 = np.zeros((weight_dim[2],1))
     return w1, w2, b1, b2
 
+def sigmoid(x):
+  return 1 / (1 + math.exp(-x))
 
-def forward_pass():
-    # TODO: pass the minibatch through the NN and get the output. This will be called every iteration.
-    pass
+def feed_forward(X, w1, w2, b1, b2):
+    z1 = w1 @ X.T + b1
+    a1 = sigmoid(z1)
+
+    z2 = w2 @ a1 + b2
+    a2 = sigmoid(z2)
+
+    return z1, a1, z2, a2
 
 
 def calculate_loss():
@@ -112,28 +129,37 @@ def display_results():
     # TODO: display the results from this run, will use this to tune hyperparameters
     pass
 
+def train_NN(training_data,training_labels,w1,w2,b1,b2):
+    epoch = 0
+    num_of_batches = training_data.shape[0] // BATCH_SIZE
+    while (1):
+        epoch+=1
+
+        for j in range(num_of_batches): #iterate over each mini batch
+
+            for row in range(j*BATCH_SIZE,(j+1)*BATCH_SIZE): #iterate over each sample in mini batch
+                X = training_data[row,:training_data.shape[1]] #this is the sample data
+                #TODO: Y = trainind_data[row, -1] #this is the label
+                #TODO: feed X, Y, w1, w2, b1, b2 into NN
+                #TODO: initialize and sum the differentials
+
+            # TODO: update weights and biases - W' = W - (1.0/N) * Del, N = batch size, del = diff vector from loss func.
+
+        # TODO: print results for this epoch
+        # TODO: check some stop condition (>90% accuracy)
+    return w1, w2, b1, b2
 
 def main():
     training_labels, training_data = load_dataset('training')
     val_labels, val_data = load_dataset('validation')
-    weight_dim = [1024, 10, 1]
-    w1, w2, b1, b2 = init_weights(weight_dim)
-    print("")
+    num_of_features = training_data.shape[0]
+
     #initialize weights
+    weight_dim = [num_of_features, HIDDEN_LAYER, 1] #[features, hidden, output]
+    w1, w2, b1, b2 = init_weights(weight_dim)
 
-    #for i in number of epochs
+    w1, w2, b1, b2 = train_NN(training_data,training_labels,w1,w2,b1,b2)
 
-        #for j in number of batches
-
-            #for k in number of samples in batch j
-
-                #feed forward sample k through network
-                #sum the differential
-
-            #update weights and biases - W' = W - (1.0/N) * Del, N = batch size, del = diff vector from loss func.
-
-        #print results for this epoch
-        #check some stop condition (>90% accuracy)
 
     #display results
 
