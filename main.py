@@ -14,7 +14,7 @@ import math
 #      - loss function
 #      - activation function
 #      - hidden layer size
-BATCH_SIZE= 16 #needs to be multiple of 2
+BATCH_SIZE = 16 #needs to be multiple of 2
 LR = 0.01
 LOSS_FUNC = 'BCE'
 ACTIV_FUNC = 'sigmoid'
@@ -49,15 +49,15 @@ def load_dataset(kind_of_set):
     """
     This function prepares the raw data set before entering to forward propagation stage.
     :param kind_of_set: indicates the name of the relevant data set, can be 'train' or 'validation'.
-    :return: labels_list is a column vector which contains the label of each image in the raw data set.
-             matrix_of_im_data is a matrix which it's columns contains the gray levels of each raw image in the input
-             set after normalization to range 0-1, and flattening to a column vector.
+    :return: pre_processed_data is a matrix which it's rows contains the gray levels of each raw image in the input
+             set after normalization to range 0-1, and flattening to a column vector. The last column is a binary label
+             of each image.
     """
     relevant_folder_path = os.path.join('.', kind_of_set)
     list_of_files = os.listdir(relevant_folder_path)
     # Initialize outputs
     labels_list = np.zeros((len(list_of_files), 1))
-    matrix_of_im_data = np.zeros((1024, len(list_of_files)))
+    matrix_of_im_data = np.zeros((len(list_of_files), 1024))
     for idx, im_name in enumerate(list_of_files):
         im_path = os.path.join(relevant_folder_path, im_name)
         curr_im = cv2.imread(im_path, 0)
@@ -68,22 +68,23 @@ def load_dataset(kind_of_set):
         normalized_im = normalize_image(curr_im)
         # Flattening image
         flattened_im = normalized_im.flatten(order='C')
-        matrix_of_im_data[:, idx] = flattened_im.transpose()
-    return labels_list.T, matrix_of_im_data.T
+        matrix_of_im_data[idx, :] = flattened_im.transpose()
+    pre_processed_data = np.concatenate((matrix_of_im_data, labels_list), axis=1)
+    return pre_processed_data
 
 
-def prepare_data(data, labels):
-    # TODO: prepare the data according to our network - concatenate the data and labels, then shuffle the samples
+def prepare_data(data_and_labels_matrix):
     """
-
-    :param data: This is the data matrix from function load_dataset
-    :param labels: This is the label vector that matches the data matrix
-    :return: The matrix and label vector concatenated and shuffled
+    This function prepares the data according to our network by shuffling the samples
+    :param data_and_labels_matrix: This is the output of function load_dataset
+    :return: matrix of images values and labels after rows shuffling.
     """
-    return
+    indices_to_take = np.random.rand(data_and_labels_matrix.shape[0]).argsort()
+    shuffled_data_matrix = data_and_labels_matrix[indices_to_take, :]
+    return shuffled_data_matrix
 
 
-def init_weights(weight_dim, seed = 3):
+def init_weights(weight_dim, seed=3):
     """
     Initializes the weight matrices
     :param weight_dim: dimensions are [number input features, number of hidden nodes, number of output nodes] in our case
@@ -97,22 +98,45 @@ def init_weights(weight_dim, seed = 3):
     b2 = np.zeros((weight_dim[2],1))
     return w1, w2, b1, b2
 
-def sigmoid(x):
-  return 1 / (1 + math.exp(-x))
+
+def activation_func(activation_type, x):
+    """
+    :param activation_type: type of activation function: sigmoid, tanh of ReLU
+    :param x: input array.
+    :return: result of a desired activation function on the input x
+    """
+    if activation_type == 'sigmoid':
+            return 1 / (1 + math.exp(-x))
+    elif activation_type == 'tanh':
+            return np.tanh(x)
+    elif activation_type == 'ReLU':
+            return x * (x > 0)  # Most efficient way
+    else:
+        print('Unrecognized activation function')
+
 
 def feed_forward(X, w1, w2, b1, b2):
     z1 = w1 @ X.T + b1
-    a1 = sigmoid(z1)
+    a1 = activation_func('sigmoid', z1)
 
     z2 = w2 @ a1 + b2
-    a2 = sigmoid(z2)
+    a2 = activation_func('sigmoid', z2)
 
     return z1, a1, z2, a2
 
 
-def calculate_loss():
-    # TODO: calculate the loss according to desired loss function - can make this a switch case for different funcs.
-    pass
+def calculate_loss(loss_func, y_true, y_pred):
+    """
+    :param loss_func: type of loss function: MSE, BCE (Binary Cross Entropy)
+    :param y_true: true labels of samples in mini-batch.
+    :param y_pred: prediction for each sample calculated by the network.
+    :return: Loss of the mini-batch according to the desired loss function.
+    """
+    if loss_func == 'MSE':
+        return (np.subtract(y_true, y_pred) ** 2).mean()
+    elif loss_func == 'BCE':
+        bce_array = -1 * y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
+        return bce_array.mean()
 
 
 def update_weights():
@@ -129,7 +153,8 @@ def display_results():
     # TODO: display the results from this run, will use this to tune hyperparameters
     pass
 
-def train_NN(training_data,training_labels,w1,w2,b1,b2):
+
+def train_NN(training_data,w1,w2,b1,b2):
     epoch = 0
     num_of_batches = training_data.shape[0] // BATCH_SIZE
     while (1):
@@ -149,16 +174,19 @@ def train_NN(training_data,training_labels,w1,w2,b1,b2):
         # TODO: check some stop condition (>90% accuracy)
     return w1, w2, b1, b2
 
+
 def main():
-    training_labels, training_data = load_dataset('training')
-    val_labels, val_data = load_dataset('validation')
+    pre_processed_training = load_dataset('training')
+    training_data = prepare_data(pre_processed_training)
+    pre_processed_val = load_dataset('validation')
+    val_data = prepare_data(pre_processed_training)
     num_of_features = training_data.shape[0]
 
     #initialize weights
     weight_dim = [num_of_features, HIDDEN_LAYER, 1] #[features, hidden, output]
     w1, w2, b1, b2 = init_weights(weight_dim)
 
-    w1, w2, b1, b2 = train_NN(training_data,training_labels,w1,w2,b1,b2)
+    w1, w2, b1, b2 = train_NN(training_data,w1,w2,b1,b2)
 
 
     #display results
