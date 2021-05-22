@@ -184,7 +184,7 @@ def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
             delta2 = np.zeros(w2.shape)
             db1 = 0.0
             db2 = 0.0
-
+            batch_loss = 0
             for row in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):  # iterate over each sample in mini batch
                 X = training_data[row, :-1]  # This is the sample data
                 X = X.reshape((1024,1))
@@ -210,7 +210,10 @@ def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
             w2 = w2 - LR * 1.0 / BATCH_SIZE * delta2
             b2 = b2 - LR * 1.0 / BATCH_SIZE * db2
 
+
         # TODO: print results for this epoch
+        #print("")
+       #print("[EPOCH #{}: Training accuracy: {}".format(epoch, loss))
         # TODO: check some stop condition (>90% accuracy)
     return w1, w2, b1, b2
 
