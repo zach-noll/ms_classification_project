@@ -4,7 +4,6 @@ import cv2
 import os
 import math
 
-
 ########################################################################################################################
 
 
@@ -14,7 +13,7 @@ import math
 #      - loss function
 #      - activation function
 #      - hidden layer size
-BATCH_SIZE = 16 #needs to be multiple of 2
+BATCH_SIZE = 16  # needs to be multiple of 2
 LR = 0.01
 LOSS_FUNC = 'BCE'
 ACTIV_FUNC = 'sigmoid'
@@ -92,51 +91,69 @@ def init_weights(weight_dim, seed=3):
     :param seed: for random number generation, set default to 3
     :return: w1, w2, b1, b2 - weights and biases for layers 1 and 2
     """
-    w1 = np.random.randn(weight_dim[1],weight_dim[0]) * np.sqrt(2/weight_dim[0])
-    w2 = np.random.randn(weight_dim[2],weight_dim[1]) * np.sqrt(2/weight_dim[1])
-    b1 = np.zeros((weight_dim[1],1))
-    b2 = np.zeros((weight_dim[2],1))
+    w1 = np.random.randn(weight_dim[1], weight_dim[0]) * np.sqrt(2 / weight_dim[0])
+    w2 = np.random.randn(weight_dim[2], weight_dim[1]) * np.sqrt(2 / weight_dim[1])
+    b1 = np.zeros((weight_dim[1], 1))
+    b2 = np.zeros((weight_dim[2], 1))
     return w1, w2, b1, b2
 
 
-def activation_func(activation_type, x):
+def activation_func(activation_type, x, drivative=False):
     """
     :param activation_type: type of activation function: sigmoid, tanh of ReLU
     :param x: input array.
+    :param drivative: a boolean variable -  whether to calculate the derivative of the desired activation function or not.
     :return: result of a desired activation function on the input x
     """
     if activation_type == 'sigmoid':
-            return 1 / (1 + math.exp(-x))
+        if drivative:
+            return (np.exp(-x)) / ((np.exp(-x) + 1) ** 2)
+        return 1 / (1 + math.exp(-x))
     elif activation_type == 'tanh':
-            return np.tanh(x)
+        if drivative:
+            return 1 - (np.tanh(x) ** 2)
+        return np.tanh(x)
     elif activation_type == 'ReLU':
-            return x * (x > 0)  # Most efficient way
+        if drivative:
+            return 1 * (x > 0)
+        return x * (x > 0)  # Most efficient way
     else:
         print('Unrecognized activation function')
 
 
-def feed_forward(X, w1, w2, b1, b2):
-    z1 = w1 @ X.T + b1
-    a1 = activation_func('sigmoid', z1)
+def feed_forward(X, w1, w2, b1, b2, activation_type):
+    z1 = w1 @ X.T + b1  # TODO: something is wrong with the dimension here.
+    a1 = activation_func(activation_type, z1, False)
 
     z2 = w2 @ a1 + b2
-    a2 = activation_func('sigmoid', z2)
+    a2 = activation_func(activation_type, z2, False)
 
     return z1, a1, z2, a2
 
 
+""" 
+# We will probably not need a function of the loss itself but only of the derivative of the loss
 def calculate_loss(loss_func, y_true, y_pred):
-    """
-    :param loss_func: type of loss function: MSE, BCE (Binary Cross Entropy)
-    :param y_true: true labels of samples in mini-batch.
-    :param y_pred: prediction for each sample calculated by the network.
-    :return: Loss of the mini-batch according to the desired loss function.
-    """
     if loss_func == 'MSE':
         return (np.subtract(y_true, y_pred) ** 2).mean()
     elif loss_func == 'BCE':
         bce_array = -1 * y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
         return bce_array.mean()
+"""
+
+
+def calculate_loss_derivative(loss_func, y_true, y_pred):
+    """
+    :param loss_func: type of loss function: MSE, BCE (Binary Cross Entropy)
+    :param y_true: true labels of samples in mini-batch.
+    :param y_pred: prediction for each sample calculated by the network.
+    :return: Derivative of loss of the mini-batch according to the desired loss function.
+    """
+    if loss_func == 'MSE':
+        loss_derivative = y_true - y_pred
+    elif loss_func == 'BCE':
+        loss_derivative = -1 * y_true / (y_pred) + (1 - y_true) / (1 - y_pred)
+    return loss_derivative
 
 
 def update_weights():
@@ -154,21 +171,42 @@ def display_results():
     pass
 
 
-def train_NN(training_data,w1,w2,b1,b2):
+def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
     epoch = 0
     num_of_batches = training_data.shape[0] // BATCH_SIZE
     while (1):
-        epoch+=1
+        epoch += 1
 
-        for j in range(num_of_batches): #iterate over each mini batch
+        for j in range(num_of_batches):  # iterate over each mini batch
 
-            for row in range(j*BATCH_SIZE,(j+1)*BATCH_SIZE): #iterate over each sample in mini batch
-                X = training_data[row,:training_data.shape[1]] #this is the sample data
-                #TODO: Y = trainind_data[row, -1] #this is the label
-                #TODO: feed X, Y, w1, w2, b1, b2 into NN
-                #TODO: initialize and sum the differentials
+            # Initilazing gradients
+            delta1 = np.zeros(w1.shape)
+            delta2 = np.zeros(w2.shape)
+            db1 = 0.0
+            db2 = 0.0
 
-            # TODO: update weights and biases - W' = W - (1.0/N) * Del, N = batch size, del = diff vector from loss func.
+            for row in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):  # iterate over each sample in mini batch
+                X = training_data[row, :-1]  # This is the sample data
+                Y = training_data[row, -1]  # This is the label
+                # Feed forward
+                z1, a1, z2, a2 = feed_forward(X, w1, w2, b1, b2, activation_type)
+
+                # Initializations
+
+                d3 = calculate_loss_derivative(loss_type, Y, a2) * activation_func(activation_type, z2, True)  # TODO: Make sure it's right. It is compatible with the formulas from the exercise and not compatible with the reference website.
+                delta2 += d3 * np.transpose(a2) # Outer
+                db2 += d3
+
+                d2 = np.multiply((np.transpose(w2) * d3), activation_func(activation_type, z1, True))  # Outer
+                delta1 += d2 * np.transpose(a1)  # Outer
+                db1 += d2
+
+            # Gradient Descent Step
+            # Updating weights after every batch by averaging the gradients
+            w1 = w1 - LR * 1.0 / BATCH_SIZE * delta1
+            b1 = b1 - LR * 1.0 / BATCH_SIZE * db1
+            w2 = w2 - LR * 1.0 / BATCH_SIZE * delta2
+            b2 = b2 - LR * 1.0 / BATCH_SIZE * db2
 
         # TODO: print results for this epoch
         # TODO: check some stop condition (>90% accuracy)
@@ -180,19 +218,19 @@ def main():
     training_data = prepare_data(pre_processed_training)
     pre_processed_val = load_dataset('validation')
     val_data = prepare_data(pre_processed_training)
-    num_of_features = training_data.shape[0]
+    num_of_images = training_data.shape[0]
 
     #initialize weights
-    weight_dim = [num_of_features, HIDDEN_LAYER, 1] #[features, hidden, output]
+    weight_dim = [num_of_images, HIDDEN_LAYER, 1] #[features, hidden, output]
     w1, w2, b1, b2 = init_weights(weight_dim)
+    w1, w2, b1, b2 = train_NN(training_data, w1, w2, b1, b2,  'sigmoid', 'MSE')
 
-    w1, w2, b1, b2 = train_NN(training_data,w1,w2,b1,b2)
 
-
-    #display results
+    # display results
 
     return
 
 
 if __name__ == "__main__":
     main()
+
