@@ -87,7 +87,7 @@ def init_weights(weight_dim, seed=3):
     """
     Initializes the weight matrices
     :param weight_dim: dimensions are [number input features, number of hidden nodes, number of output nodes] in our case
-    this is [512, H (hyperparameter), 1]
+    this is [1024, H (hyperparameter), 1]
     :param seed: for random number generation, set default to 3
     :return: w1, w2, b1, b2 - weights and biases for layers 1 and 2
     """
@@ -98,23 +98,23 @@ def init_weights(weight_dim, seed=3):
     return w1, w2, b1, b2
 
 
-def activation_func(activation_type, x, drivative=False):
+def activation_func(activation_type, x, derivative=False):
     """
     :param activation_type: type of activation function: sigmoid, tanh of ReLU
     :param x: input array.
-    :param drivative: a boolean variable -  whether to calculate the derivative of the desired activation function or not.
+    :param derivative: a boolean variable -  whether to calculate the derivative of the desired activation function or not.
     :return: result of a desired activation function on the input x
     """
     if activation_type == 'sigmoid':
-        if drivative:
+        if derivative:
             return (np.exp(-x)) / ((np.exp(-x) + 1) ** 2)
-        return 1 / (1 + math.exp(-x))
+        return 1 / (1 + np.exp(-x))
     elif activation_type == 'tanh':
-        if drivative:
+        if derivative:
             return 1 - (np.tanh(x) ** 2)
         return np.tanh(x)
     elif activation_type == 'ReLU':
-        if drivative:
+        if derivative:
             return 1 * (x > 0)
         return x * (x > 0)  # Most efficient way
     else:
@@ -122,7 +122,7 @@ def activation_func(activation_type, x, drivative=False):
 
 
 def feed_forward(X, w1, w2, b1, b2, activation_type):
-    z1 = w1 @ X.T + b1  # TODO: something is wrong with the dimension here.
+    z1 = w1 @ X + b1  # TODO: something is wrong with the dimension here.
     a1 = activation_func(activation_type, z1, False)
 
     z2 = w2 @ a1 + b2
@@ -187,6 +187,8 @@ def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
 
             for row in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):  # iterate over each sample in mini batch
                 X = training_data[row, :-1]  # This is the sample data
+                X = X.reshape((1024,1))
+
                 Y = training_data[row, -1]  # This is the label
                 # Feed forward
                 z1, a1, z2, a2 = feed_forward(X, w1, w2, b1, b2, activation_type)
@@ -194,11 +196,11 @@ def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
                 # Initializations
 
                 d3 = calculate_loss_derivative(loss_type, Y, a2) * activation_func(activation_type, z2, True)  # TODO: Make sure it's right. It is compatible with the formulas from the exercise and not compatible with the reference website.
-                delta2 += d3 * np.transpose(a2) # Outer
+                delta2 += d3 * a2 # Outer
                 db2 += d3
 
                 d2 = np.multiply((np.transpose(w2) * d3), activation_func(activation_type, z1, True))  # Outer
-                delta1 += d2 * np.transpose(a1)  # Outer
+                delta1 += d2 * a1  # Outer
                 db1 += d2
 
             # Gradient Descent Step
@@ -218,10 +220,10 @@ def main():
     training_data = prepare_data(pre_processed_training)
     pre_processed_val = load_dataset('validation')
     val_data = prepare_data(pre_processed_training)
-    num_of_images = training_data.shape[0]
+    pixels = training_data.shape[1]-1
 
     #initialize weights
-    weight_dim = [num_of_images, HIDDEN_LAYER, 1] #[features, hidden, output]
+    weight_dim = [pixels, HIDDEN_LAYER, 1] #[features, hidden, output]
     w1, w2, b1, b2 = init_weights(weight_dim)
     w1, w2, b1, b2 = train_NN(training_data, w1, w2, b1, b2,  'sigmoid', 'MSE')
 
