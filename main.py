@@ -13,11 +13,12 @@ import math
 #      - loss function
 #      - activation function
 #      - hidden layer size
-BATCH_SIZE = 16  # needs to be multiple of 2
+BATCH_SIZE = 4  # needs to be multiple of 2
 LR = 0.01
 LOSS_FUNC = 'BCE'
 ACTIV_FUNC = 'sigmoid'
-HIDDEN_LAYER = 100
+HIDDEN_LAYER = 15
+EPOCHS = 300
 
 
 ########################################################################################################################
@@ -122,37 +123,34 @@ def activation_func(activation_type, x, derivative=False):
 
 
 def feed_forward(X, w1, w2, b1, b2, activation_type):
-    z1 = w1 @ X + b1  # TODO: something is wrong with the dimension here.
-    a1 = activation_func(activation_type, z1, False)
+    a1 = w1 @ X + b1
+    z1 = activation_func(activation_type, a1, False)
 
-    z2 = w2 @ a1 + b2
-    a2 = activation_func(activation_type, z2, False)
+    a2 = w2 @ z1 + b2
+    z2 = activation_func(activation_type, a2, False)
 
-    return z1, a1, z2, a2
+    return np.atleast_2d(z1).T, np.atleast_2d(a1).T, np.atleast_2d(z2).T, np.atleast_2d(a2).T
 
 
-""" 
+
 # We will probably not need a function of the loss itself but only of the derivative of the loss
-def calculate_loss(loss_func, y_true, y_pred):
+def calculate_loss(loss_func, label, pred):
     if loss_func == 'MSE':
-        return (np.subtract(y_true, y_pred) ** 2).mean()
+        mse = (np.subtract(label, pred) ** 2)
+        return mse
+
     elif loss_func == 'BCE':
-        bce_array = -1 * y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
-        return bce_array.mean()
-"""
+        bce = -1 * label * np.log(pred) - (1 - label) * np.log(1 - pred)
+        return bce
 
 
-def calculate_loss_derivative(loss_func, y_true, y_pred):
-    """
-    :param loss_func: type of loss function: MSE, BCE (Binary Cross Entropy)
-    :param y_true: true labels of samples in mini-batch.
-    :param y_pred: prediction for each sample calculated by the network.
-    :return: Derivative of loss of the mini-batch according to the desired loss function.
-    """
+
+def calculate_loss_derivative(loss_func, label, pred):
     if loss_func == 'MSE':
-        loss_derivative = y_true - y_pred
+        loss_derivative = label - pred
+
     elif loss_func == 'BCE':
-        loss_derivative = -1 * y_true / (y_pred) + (1 - y_true) / (1 - y_pred)
+        loss_derivative = -1 * label / pred + (1 - label) / (1 - pred)
     return loss_derivative
 
 
@@ -172,43 +170,66 @@ def display_results():
 
 
 def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
-    epoch = 0
+
     num_of_batches = training_data.shape[0] // BATCH_SIZE
-    while (1):
-        epoch += 1
+
+    for epoch in range (EPOCHS):
+
 
         for j in range(num_of_batches):  # iterate over each mini batch
 
             # Initilazing gradients
-            delta1 = np.zeros(w1.shape)
-            delta2 = np.zeros(w2.shape)
-            db1 = 0.0
-            db2 = 0.0
+            delta_L = np.zeros((BATCH_SIZE,HIDDEN_LAYER))
+            db2 = 0
+
+            batch_accuracy = 0
             batch_loss = 0
+
             for row in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):  # iterate over each sample in mini batch
+
                 X = training_data[row, :-1]  # This is the sample data
                 X = X.reshape((1024,1))
 
                 Y = training_data[row, -1]  # This is the label
+
+
                 # Feed forward
-                z1, a1, z2, a2 = feed_forward(X, w1, w2, b1, b2, activation_type)
+                a1 = w1 @ X + b1
+                z1 = activation_func(ACTIV_FUNC, a1, False)
 
-                # Initializations
+                a2 = w2 @ z1 + b2
+                z2 = activation_func(ACTIV_FUNC, a2, False)
 
-                d3 = calculate_loss_derivative(loss_type, Y, a2) * activation_func(activation_type, z2, True)  # TODO: Make sure it's right. It is compatible with the formulas from the exercise and not compatible with the reference website.
-                delta2 += d3 * a2 # Outer
-                db2 += d3
+                # add loss for sample
+                batch_loss += calculate_loss(LOSS_FUNC, Y, z2)
 
-                d2 = np.multiply((np.transpose(w2) * d3), activation_func(activation_type, z1, True))  # Outer
-                delta1 += d2 * a1  # Outer
-                db1 += d2
+                output = np.round(a2)
 
-            # Gradient Descent Step
-            # Updating weights after every batch by averaging the gradients
-            w1 = w1 - LR * 1.0 / BATCH_SIZE * delta1
-            b1 = b1 - LR * 1.0 / BATCH_SIZE * db1
-            w2 = w2 - LR * 1.0 / BATCH_SIZE * delta2
-            b2 = b2 - LR * 1.0 / BATCH_SIZE * db2
+                if Y == np.round(output):
+                    batch_accuracy += 1
+
+                # add gradients
+                delta_L[row,:] += np.reshape(np.multiply(calculate_loss_derivative(LOSS_FUNC,Y,z2),activation_func(ACTIV_FUNC, a2, derivative=True)*z1),15)
+                db2 += np.multiply(calculate_loss_derivative(LOSS_FUNC,Y,z2),activation_func(ACTIV_FUNC, a2, derivative=True))
+
+
+
+
+
+
+            batch_loss = batch_loss / BATCH_SIZE
+            batch_accuracy = batch_accuracy / BATCH_SIZE
+
+
+
+
+
+            print(f"Average loss is: {batch_loss}")
+
+
+
+
+
 
 
         # TODO: print results for this epoch
