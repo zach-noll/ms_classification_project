@@ -226,12 +226,12 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
         training_acc_arr[epoch] = training_acc
         validation_acc_arr[epoch] = validation_acc
 
-    plt.plot(range(EPOCHS),validation_acc_arr)
-    plt.xlabel("Epoch #")
-    plt.ylabel("Accuracy (%)")
-    plt.title("Validation Accuracy")
-    plt.ylim(0,100)
-    plt.show()
+    fig, axes = plt.subplots(2)
+    axes[0].plot(range(EPOCHS),training_acc_arr)
+    axes[1].plot(range(EPOCHS),validation_acc_arr)
+    axes[0].set_title("Training Accuracy")
+    axes[1].set_title("Validation Accuracy")
+
     return w1, w2, b1, b2
 
 
