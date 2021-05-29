@@ -13,13 +13,12 @@ import math
 #      - loss function
 #      - activation function
 #      - hidden layer size
-BATCH_SIZE = 4  # needs to be multiple of 2
-LR = 0.01
+BATCH_SIZE = 2  # needs to be multiple of 2
+LR = 0.005
 LOSS_FUNC = 'BCE'
 ACTIV_FUNC = 'sigmoid'
-HIDDEN_LAYER = 15
-EPOCHS = 300
-
+HIDDEN_LAYER = 10
+EPOCHS = 200
 
 ########################################################################################################################
 def normalize_image(image):
@@ -94,8 +93,8 @@ def init_weights(weight_dim, seed=3):
     """
     w1 = np.random.randn(weight_dim[1], weight_dim[0]) * np.sqrt(2 / weight_dim[0])
     w2 = np.random.randn(weight_dim[2], weight_dim[1]) * np.sqrt(2 / weight_dim[1])
-    b1 = np.zeros((weight_dim[1], 1))
-    b2 = np.zeros((weight_dim[2], 1))
+    b1 = np.ones((weight_dim[1], 1))
+    b2 = np.ones((weight_dim[2], 1))
     return w1, w2, b1, b2
 
 
@@ -112,12 +111,13 @@ def activation_func(activation_type, x, derivative=False):
         return 1 / (1 + np.exp(-x))
     elif activation_type == 'tanh':
         if derivative:
-            return 1 - (np.tanh(x) ** 2)
+            return 1 - np.power(np.tanh(x), 2)
         return np.tanh(x)
-    elif activation_type == 'ReLU':
+    elif activation_type == 'relu':
         if derivative:
-            return 1 * (x > 0)
-        return x * (x > 0)  # Most efficient way
+            return np.where(x>0, 1.0, 0.0)
+        return np.maximum(x, 0)
+
     else:
         print('Unrecognized activation function')
 
@@ -129,14 +129,13 @@ def feed_forward(X, w1, w2, b1, b2, activation_type):
     a2 = w2 @ z1 + b2
     z2 = activation_func(activation_type, a2, False)
 
-    return np.atleast_2d(z1).T, np.atleast_2d(a1).T, np.atleast_2d(z2).T, np.atleast_2d(a2).T
-
+    return a1, z1, a2, z2
 
 
 # We will probably not need a function of the loss itself but only of the derivative of the loss
 def calculate_loss(loss_func, label, pred):
     if loss_func == 'MSE':
-        mse = (np.subtract(label, pred) ** 2)
+        mse = -0.5 * np.power(label - pred, 2)
         return mse
 
     elif loss_func == 'BCE':
@@ -144,43 +143,44 @@ def calculate_loss(loss_func, label, pred):
         return bce
 
 
-
 def calculate_loss_derivative(loss_func, label, pred):
     if loss_func == 'MSE':
-        loss_derivative = label - pred
+        loss_derivative = -1 * (label - pred)
 
     elif loss_func == 'BCE':
         loss_derivative = -1 * label / pred + (1 - label) / (1 - pred)
     return loss_derivative
 
 
-def update_weights():
-    # TODO: updates the weights matrices by backwards propogation and batch gradiant descent.
-    pass
+def calc_out_vec(training_data, w1, w2, b1, b2, activation_type):
+    output_vec = np.zeros((training_data.shape[0], 1))
+    for i in range(training_data.shape[0]):
+
+        _,_,_,output=feed_forward(training_data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
+        output = float(np.round(output))
+
+        if (output == training_data[i, -1]):
+            output_vec[i] = 1
+
+    return output_vec
 
 
-def run_epoch():
-    # TODO: runs entire dataset through network in minibatches.
-    pass
+def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, loss_type):
 
-
-def display_results():
-    # TODO: display the results from this run, will use this to tune hyperparameters
-    pass
-
-
-def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
+    training_acc_arr = np.zeros(EPOCHS)
+    validation_acc_arr = np.zeros(EPOCHS)
 
     num_of_batches = training_data.shape[0] // BATCH_SIZE
 
-    for epoch in range (EPOCHS):
-
+    for epoch in range(EPOCHS):
 
         for j in range(num_of_batches):  # iterate over each mini batch
 
             # Initilazing gradients
-            delta_L = np.zeros((BATCH_SIZE,HIDDEN_LAYER))
+            grad_E_L = np.zeros((HIDDEN_LAYER, 1))
             db2 = 0
+            grad_E_H = np.zeros((HIDDEN_LAYER, 1024))
+            db1 = np.zeros((HIDDEN_LAYER, 1))
 
             batch_accuracy = 0
             batch_loss = 0
@@ -188,54 +188,50 @@ def train_NN(training_data, w1, w2, b1, b2, activation_type, loss_type):
             for row in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):  # iterate over each sample in mini batch
 
                 X = training_data[row, :-1]  # This is the sample data
-                X = X.reshape((1024,1))
-
+                X = X.reshape((1024, 1))
                 Y = training_data[row, -1]  # This is the label
 
-
                 # Feed forward
-                a1 = w1 @ X + b1
-                z1 = activation_func(ACTIV_FUNC, a1, False)
-
-                a2 = w2 @ z1 + b2
-                z2 = activation_func(ACTIV_FUNC, a2, False)
-
-                # add loss for sample
-                batch_loss += calculate_loss(LOSS_FUNC, Y, z2)
-
-                output = np.round(a2)
-
-                if Y == np.round(output):
-                    batch_accuracy += 1
+                a1, z1, a2, z2 = feed_forward(X, w1, w2, b1, b2, activation_type)
 
                 # add gradients
-                delta_L[row,:] += np.reshape(np.multiply(calculate_loss_derivative(LOSS_FUNC,Y,z2),activation_func(ACTIV_FUNC, a2, derivative=True)*z1),15)
-                db2 += np.multiply(calculate_loss_derivative(LOSS_FUNC,Y,z2),activation_func(ACTIV_FUNC, a2, derivative=True))
+                # output layer
+                del_L = calculate_loss_derivative(loss_type, Y, z2) * activation_func(activation_type, a2,
+                                                                                      derivative=True)
+                grad_E_L += del_L * z1
+                db2 += del_L
+
+                # hidden layer
+                del_H = del_L * activation_func(activation_type, a1, derivative=True) * w2.T
+                grad_E_H += del_H @ X.T
+                db1 += del_H
+
+            # update weights per minibatch using the average gradients over each minibatch
+
+            w1 = w1 - LR * grad_E_H / BATCH_SIZE
+            w2 = w2 - LR * grad_E_L.T / BATCH_SIZE
+            b1 = b1 - LR * db1 / BATCH_SIZE
+            b2 = b2 - LR * db2 / BATCH_SIZE
+
+        training_output_vec = calc_out_vec(training_data, w1, w2, b1, b2, activation_type)
+        validation_output_vec = calc_out_vec(validation_data, w1, w2, b1, b2, activation_type)
 
 
+        training_acc = np.around(np.average(training_output_vec) * 100,decimals=2)
+        validation_acc = np.around(np.average(validation_output_vec)*100,decimals=2)
 
+        print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
+        print(f"           Validation accuracy: {validation_acc}%")
 
+        training_acc_arr[epoch] = training_acc
+        validation_acc_arr[epoch] = validation_acc
 
-
-            batch_loss = batch_loss / BATCH_SIZE
-            batch_accuracy = batch_accuracy / BATCH_SIZE
-
-
-
-
-
-            print(f"Average loss is: {batch_loss}")
-
-
-
-
-
-
-
-        # TODO: print results for this epoch
-        #print("")
-       #print("[EPOCH #{}: Training accuracy: {}".format(epoch, loss))
-        # TODO: check some stop condition (>90% accuracy)
+    plt.plot(range(EPOCHS),validation_acc_arr)
+    plt.xlabel("Epoch #")
+    plt.ylabel("Accuracy (%)")
+    plt.title("Validation Accuracy")
+    plt.ylim(0,100)
+    plt.show()
     return w1, w2, b1, b2
 
 
@@ -243,14 +239,13 @@ def main():
     pre_processed_training = load_dataset('training')
     training_data = prepare_data(pre_processed_training)
     pre_processed_val = load_dataset('validation')
-    val_data = prepare_data(pre_processed_training)
-    pixels = training_data.shape[1]-1
+    val_data = prepare_data(pre_processed_val)
+    pixels = training_data.shape[1] - 1
 
-    #initialize weights
-    weight_dim = [pixels, HIDDEN_LAYER, 1] #[features, hidden, output]
+    # initialize weights
+    weight_dim = [pixels, HIDDEN_LAYER, 1]  # [features, hidden, output]
     w1, w2, b1, b2 = init_weights(weight_dim)
-    w1, w2, b1, b2 = train_NN(training_data, w1, w2, b1, b2,  'sigmoid', 'MSE')
-
+    w1, w2, b1, b2 = train_NN(training_data, val_data, w1, w2, b1, b2, ACTIV_FUNC, LOSS_FUNC)
 
     # display results
 
@@ -259,4 +254,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
