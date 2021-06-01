@@ -20,6 +20,7 @@ ACTIV_FUNC = 'sigmoid'
 HIDDEN_LAYER = 10
 EPOCHS = 100
 
+
 ########################################################################################################################
 def normalize_image(image):
     """Min - max normalization of gray levels to 0-1 range."""
@@ -115,7 +116,7 @@ def activation_func(activation_type, x, derivative=False):
         return np.tanh(x)
     elif activation_type == 'relu':
         if derivative:
-            return np.where(x>0, 1.0, 0.0)
+            return np.where(x > 0, 1.0, 0.0)
         return np.maximum(x, 0)
 
     else:
@@ -157,11 +158,10 @@ def calc_out_vec(data, w1, w2, b1, b2, activation_type):
     loss_vec = np.zeros((data.shape[0], 1))
     for i in range(data.shape[0]):
 
-        _,_,_,output=feed_forward(data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
+        _, _, _, output = feed_forward(data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
 
-        loss_vec[i] = calculate_loss(LOSS_FUNC,data[i,-1],output)
+        loss_vec[i] = calculate_loss(LOSS_FUNC, data[i, -1], output)
         output = float(np.round(output))
-
 
         if (output == data[i, -1]):
             output_vec[i] = 1
@@ -169,8 +169,7 @@ def calc_out_vec(data, w1, w2, b1, b2, activation_type):
     return output_vec, loss_vec
 
 
-def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, loss_type):
-
+def train_NN(training_data, validation_data, w1, w2, b1, b2, activation_type, loss_type):
     training_acc_arr = np.zeros(EPOCHS)
     validation_acc_arr = np.zeros(EPOCHS)
 
@@ -185,9 +184,6 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
             db2 = 0
             grad_E_H = np.zeros((HIDDEN_LAYER, 1024))
             db1 = np.zeros((HIDDEN_LAYER, 1))
-
-            batch_accuracy = 0
-            batch_loss = 0
 
             for row in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):  # iterate over each sample in mini batch
 
@@ -220,11 +216,9 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
         training_output_vec, training_loss_vec = calc_out_vec(training_data, w1, w2, b1, b2, activation_type)
         validation_output_vec, validation_loss_vec = calc_out_vec(validation_data, w1, w2, b1, b2, activation_type)
 
-
-        training_acc = np.around(np.average(training_output_vec) * 100,decimals=2)
-        validation_acc = np.around(np.average(validation_output_vec)*100,decimals=2)
-        validation_loss = np.around(np.average(validation_loss_vec),decimals=2)
-
+        training_acc = np.around(np.average(training_output_vec) * 100, decimals=2)
+        validation_acc = np.around(np.average(validation_output_vec) * 100, decimals=2)
+        validation_loss = np.around(np.average(validation_loss_vec), decimals=2)
 
         print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
         print(f"           Validation accuracy: {validation_acc}%")
@@ -234,8 +228,8 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
         validation_acc_arr[epoch] = validation_acc
 
     fig, axes = plt.subplots(2)
-    axes[0].plot(range(EPOCHS),training_acc_arr)
-    axes[1].plot(range(EPOCHS),validation_acc_arr)
+    axes[0].plot(range(EPOCHS), training_acc_arr)
+    axes[1].plot(range(EPOCHS), validation_acc_arr)
     axes[0].set_title("Training Accuracy")
     axes[1].set_title("Validation Accuracy")
     plt.show()
