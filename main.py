@@ -18,7 +18,7 @@ LR = 0.005
 LOSS_FUNC = 'BCE'
 ACTIV_FUNC = 'sigmoid'
 HIDDEN_LAYER = 10
-EPOCHS = 200
+EPOCHS = 100
 
 ########################################################################################################################
 def normalize_image(image):
@@ -152,17 +152,21 @@ def calculate_loss_derivative(loss_func, label, pred):
     return loss_derivative
 
 
-def calc_out_vec(training_data, w1, w2, b1, b2, activation_type):
-    output_vec = np.zeros((training_data.shape[0], 1))
-    for i in range(training_data.shape[0]):
+def calc_out_vec(data, w1, w2, b1, b2, activation_type):
+    output_vec = np.zeros((data.shape[0], 1))
+    loss_vec = np.zeros((data.shape[0], 1))
+    for i in range(data.shape[0]):
 
-        _,_,_,output=feed_forward(training_data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
+        _,_,_,output=feed_forward(data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
+
+        loss_vec[i] = calculate_loss(LOSS_FUNC,data[i,-1],output)
         output = float(np.round(output))
 
-        if (output == training_data[i, -1]):
+
+        if (output == data[i, -1]):
             output_vec[i] = 1
 
-    return output_vec
+    return output_vec, loss_vec
 
 
 def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, loss_type):
@@ -213,15 +217,18 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
             b1 = b1 - LR * db1 / BATCH_SIZE
             b2 = b2 - LR * db2 / BATCH_SIZE
 
-        training_output_vec = calc_out_vec(training_data, w1, w2, b1, b2, activation_type)
-        validation_output_vec = calc_out_vec(validation_data, w1, w2, b1, b2, activation_type)
+        training_output_vec, training_loss_vec = calc_out_vec(training_data, w1, w2, b1, b2, activation_type)
+        validation_output_vec, validation_loss_vec = calc_out_vec(validation_data, w1, w2, b1, b2, activation_type)
 
 
         training_acc = np.around(np.average(training_output_vec) * 100,decimals=2)
         validation_acc = np.around(np.average(validation_output_vec)*100,decimals=2)
 
+
+
         print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
         print(f"           Validation accuracy: {validation_acc}%")
+        #print(f"[EPOCH] {epoch}: Validation loss: {validation_loss}")
 
         training_acc_arr[epoch] = training_acc
         validation_acc_arr[epoch] = validation_acc
