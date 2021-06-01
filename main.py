@@ -223,12 +223,12 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
 
         training_acc = np.around(np.average(training_output_vec) * 100,decimals=2)
         validation_acc = np.around(np.average(validation_output_vec)*100,decimals=2)
-
+        validation_loss = np.around(np.average(validation_loss_vec),decimals=2)
 
 
         print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
         print(f"           Validation accuracy: {validation_acc}%")
-        #print(f"[EPOCH] {epoch}: Validation loss: {validation_loss}")
+        print(f"           Validation loss: {validation_loss}")
 
         training_acc_arr[epoch] = training_acc
         validation_acc_arr[epoch] = validation_acc
@@ -238,7 +238,7 @@ def train_NN(training_data,validation_data, w1, w2, b1, b2, activation_type, los
     axes[1].plot(range(EPOCHS),validation_acc_arr)
     axes[0].set_title("Training Accuracy")
     axes[1].set_title("Validation Accuracy")
-
+    plt.show()
     return w1, w2, b1, b2
 
 
