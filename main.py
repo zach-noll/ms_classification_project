@@ -3,25 +3,22 @@ from matplotlib import pyplot as plt
 import cv2
 import os
 import math
+import json
 
 ########################################################################################################################
 
 
-# TODO: Hyperparameters that we need to test:
-#      - minibatch size
-#      - learning rate
-#      - loss function
-#      - activation function
-#      - hidden layer size
-BATCH_SIZE = 2  # needs to be multiple of 2
-LR = 0.005
-LOSS_FUNC = 'BCE'
-ACTIV_FUNC = 'sigmoid'
-HIDDEN_LAYER = 10
-EPOCHS = 100
+# Hyperparameters:
+BATCH_SIZE = 2 # minibatch size, needs to be multiple of 2
+LR = 0.01  # learning rate
+LOSS_FUNC = 'BCE'  # loss function
+ACTIV_FUNC = 'sigmoid'  # activation function
+HIDDEN_LAYER = 50  # hidden layer size
+EPOCHS = 30  # number of epoch
 
 
 ########################################################################################################################
+
 def normalize_image(image):
     """Min - max normalization of gray levels to 0-1 range."""
     min_value = image.min()
@@ -75,7 +72,7 @@ def load_dataset(kind_of_set):
 
 def prepare_data(data_and_labels_matrix):
     """
-    This function prepares the data according to our network by shuffling the samples
+    This function prepares the data according to our network by shuffling the samples.
     :param data_and_labels_matrix: This is the output of function load_dataset
     :return: matrix of images values and labels after rows shuffling.
     """
@@ -133,7 +130,6 @@ def feed_forward(X, w1, w2, b1, b2, activation_type):
     return a1, z1, a2, z2
 
 
-# We will probably not need a function of the loss itself but only of the derivative of the loss
 def calculate_loss(loss_func, label, pred):
     if loss_func == 'MSE':
         mse = -0.5 * np.power(label - pred, 2)
@@ -153,25 +149,56 @@ def calculate_loss_derivative(loss_func, label, pred):
     return loss_derivative
 
 
-def calc_out_vec(data, w1, w2, b1, b2, activation_type):
-    output_vec = np.zeros((data.shape[0], 1))
+def calc_quality_indices(data, w1, w2, b1, b2, activation_type):
+    """
+    This function calculates vectors of loss and correct or incorrect predictions.
+    """
+    correct_vec = np.zeros((data.shape[0], 1))
     loss_vec = np.zeros((data.shape[0], 1))
     for i in range(data.shape[0]):
 
-        _, _, _, output = feed_forward(data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
+        _, _, _, output_float = feed_forward(data[i, :-1].reshape(1024, 1), w1, w2, b1, b2, activation_type)
 
-        loss_vec[i] = calculate_loss(LOSS_FUNC, data[i, -1], output)
-        output = float(np.round(output))
+        loss_vec[i] = calculate_loss(LOSS_FUNC, data[i, -1], output_float)
+        output = float(np.round(output_float))
 
         if (output == data[i, -1]):
-            output_vec[i] = 1
+            correct_vec[i] = 1
 
-    return output_vec, loss_vec
+    return correct_vec, loss_vec
+
+
+def plot_graphs(training_acc_arr,validation_acc_arr, training_loss_arr, validation_loss_arr):
+    """plot graphs of accuraacy and loss for training and validation sets."""
+
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2)
+    ax1.set_title('Accuracy')
+    ax1.set_xlabel('# of epochs')
+    ax1.set_ylabel('Accuracy [%]')
+    ax1.plot(range(EPOCHS), training_acc_arr, label='Training')
+    ax1.plot(range(EPOCHS), validation_acc_arr, label='Validation')
+    ax1.set_ylim([40, 100])
+
+    ax2.set_title('Loss')
+    ax2.set_xlabel('# of epochs')
+    ax2.set_ylabel('Loss')
+    ax2.plot(range(EPOCHS), training_loss_arr, label='Training')
+    ax2.plot(range(EPOCHS), validation_loss_arr, label='Validation')
+    ax2.set_ylim([0, 0.8])
+
+    ax1.legend()
+    ax2.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 def train_NN(training_data, validation_data, w1, w2, b1, b2, activation_type, loss_type):
+
+    # Initializing per epoch accuracy and loss vectors
     training_acc_arr = np.zeros(EPOCHS)
     validation_acc_arr = np.zeros(EPOCHS)
+    training_loss_arr = np.zeros(EPOCHS)
+    validation_loss_arr = np.zeros(EPOCHS)
 
     num_of_batches = training_data.shape[0] // BATCH_SIZE
 
@@ -179,7 +206,7 @@ def train_NN(training_data, validation_data, w1, w2, b1, b2, activation_type, lo
 
         for j in range(num_of_batches):  # iterate over each mini batch
 
-            # Initilazing gradients
+            # Initializing gradients
             grad_E_L = np.zeros((HIDDEN_LAYER, 1))
             db2 = 0
             grad_E_H = np.zeros((HIDDEN_LAYER, 1024))
@@ -213,27 +240,61 @@ def train_NN(training_data, validation_data, w1, w2, b1, b2, activation_type, lo
             b1 = b1 - LR * db1 / BATCH_SIZE
             b2 = b2 - LR * db2 / BATCH_SIZE
 
-        training_output_vec, training_loss_vec = calc_out_vec(training_data, w1, w2, b1, b2, activation_type)
-        validation_output_vec, validation_loss_vec = calc_out_vec(validation_data, w1, w2, b1, b2, activation_type)
+        training_output_vec, training_loss_vec = calc_quality_indices(training_data, w1, w2, b1, b2, activation_type)
+        validation_output_vec, validation_loss_vec = calc_quality_indices(validation_data, w1, w2, b1, b2, activation_type)
 
         training_acc = np.around(np.average(training_output_vec) * 100, decimals=2)
         validation_acc = np.around(np.average(validation_output_vec) * 100, decimals=2)
+        training_loss = np.around(np.average(training_loss_vec), decimals=2)
         validation_loss = np.around(np.average(validation_loss_vec), decimals=2)
-
-        print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
-        print(f"           Validation accuracy: {validation_acc}%")
-        print(f"           Validation loss: {validation_loss}")
 
         training_acc_arr[epoch] = training_acc
         validation_acc_arr[epoch] = validation_acc
+        training_loss_arr[epoch] = training_loss
+        validation_loss_arr[epoch] = validation_loss
 
-    fig, axes = plt.subplots(2)
-    axes[0].plot(range(EPOCHS), training_acc_arr)
-    axes[1].plot(range(EPOCHS), validation_acc_arr)
-    axes[0].set_title("Training Accuracy")
-    axes[1].set_title("Validation Accuracy")
-    plt.show()
+        """
+        print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
+        print(f"           Validation accuracy: {validation_acc}%")
+        print(f"           Training loss: {training_loss}")
+        print(f"           Validation loss: {validation_loss}")
+        """
+        # Display results
+
+        if epoch == (EPOCHS - 1):  # if last epoch
+            print(f"Last epoch:\nTraining accuracy: {training_acc}%\nValidation accuracy: {validation_acc}%")
+            print(f"Training loss: {training_loss}\nValidation loss: {validation_loss}")
+
+    # Plot accuracy and loss graphs
+    plot_graphs(training_acc_arr, validation_acc_arr, training_loss_arr, validation_loss_arr)
+
     return w1, w2, b1, b2
+
+
+def make_json(W1, W2, b1, b2, id1, id2, activation1, activation2, nn_h_dim, path_to_save):
+    """
+    make json file with trained parameters.
+    W1: numpy arrays of shape (1024, nn_h_dim)
+    W2: numpy arrays of shape (nn_h_dim, 1)
+    b1: numpy arrays of shape (1, nn_h_dim)
+    b2: numpy arrays of shape (1, 1)
+    nn_hdim - number of neirons in hidden layer: int
+    id1: id1 - str '0123456789'
+    id2: id2 - str '0123456789'
+    activation1: one of only: 'sigmoid', 'tanh', 'ReLU'
+    activation2: one of only: 'sigmoid', 'tanh', 'ReLU'
+    """
+    trained_dict = {'weights': (W1.tolist(), W2.tolist()),
+                    'biases': (b1.tolist(), b2.tolist()),
+                    'nn_hdim': nn_h_dim,
+                    'activation_1': activation1,
+                    'activation_2': activation2,
+                    'IDs': (id1, id2)}
+    file_path = os.path.join(path_to_save, 'trained_dict_{}_{}'.format(
+        trained_dict.get('IDs')[0], trained_dict.get('IDs')[1])
+                             )
+    with open(file_path, 'w') as f:
+        json.dump(trained_dict, f, indent=4)
 
 
 def main():
@@ -246,11 +307,12 @@ def main():
     # initialize weights
     weight_dim = [pixels, HIDDEN_LAYER, 1]  # [features, hidden, output]
     w1, w2, b1, b2 = init_weights(weight_dim)
+
+    # Train the NN, predict on validation and display results
     w1, w2, b1, b2 = train_NN(training_data, val_data, w1, w2, b1, b2, ACTIV_FUNC, LOSS_FUNC)
 
-    # display results
-
-    return
+    # Save to json
+    make_json(w1.T, w2.T, b1.T, b2, "id1", "id2", ACTIV_FUNC, ACTIV_FUNC, HIDDEN_LAYER, os.getcwd())
 
 
 if __name__ == "__main__":
