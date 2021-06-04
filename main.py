@@ -14,10 +14,10 @@ LR = 0.01  # learning rate
 LOSS_FUNC = 'BCE'  # loss function
 ACTIV_FUNC = 'sigmoid'  # activation function
 HIDDEN_LAYER = 50  # hidden layer size
-EPOCHS = 30  # number of epoch
-
+EPOCHS = 60  # number of epoch
 
 ########################################################################################################################
+
 
 def normalize_image(image):
     """Min - max normalization of gray levels to 0-1 range."""
@@ -177,7 +177,7 @@ def plot_graphs(training_acc_arr,validation_acc_arr, training_loss_arr, validati
     ax1.set_ylabel('Accuracy [%]')
     ax1.plot(range(EPOCHS), training_acc_arr, label='Training')
     ax1.plot(range(EPOCHS), validation_acc_arr, label='Validation')
-    ax1.set_ylim([40, 100])
+    ax1.set_ylim([40, 103])
 
     ax2.set_title('Loss')
     ax2.set_xlabel('# of epochs')
@@ -253,14 +253,13 @@ def train_NN(training_data, validation_data, w1, w2, b1, b2, activation_type, lo
         training_loss_arr[epoch] = training_loss
         validation_loss_arr[epoch] = validation_loss
 
+        # Display results
         """
         print(f"[EPOCH] {epoch}: Training accuracy: {training_acc}%")
         print(f"           Validation accuracy: {validation_acc}%")
         print(f"           Training loss: {training_loss}")
         print(f"           Validation loss: {validation_loss}")
         """
-        # Display results
-
         if epoch == (EPOCHS - 1):  # if last epoch
             print(f"Last epoch:\nTraining accuracy: {training_acc}%\nValidation accuracy: {validation_acc}%")
             print(f"Training loss: {training_loss}\nValidation loss: {validation_loss}")
@@ -297,6 +296,11 @@ def make_json(W1, W2, b1, b2, id1, id2, activation1, activation2, nn_h_dim, path
         json.dump(trained_dict, f, indent=4)
 
 
+def get_ids_from_file(path):
+    with open(path, 'r') as f:
+        return f.read().splitlines()
+
+
 def main():
     pre_processed_training = load_dataset('training')
     training_data = prepare_data(pre_processed_training)
@@ -311,8 +315,10 @@ def main():
     # Train the NN, predict on validation and display results
     w1, w2, b1, b2 = train_NN(training_data, val_data, w1, w2, b1, b2, ACTIV_FUNC, LOSS_FUNC)
 
+    id0, id1 = get_ids_from_file("ids.txt")
+
     # Save to json
-    make_json(w1.T, w2.T, b1.T, b2, "id1", "id2", ACTIV_FUNC, ACTIV_FUNC, HIDDEN_LAYER, os.getcwd())
+    make_json(w1.T, w2.T, b1.T, b2, id0, id1, ACTIV_FUNC, ACTIV_FUNC, HIDDEN_LAYER, os.getcwd())
 
 
 if __name__ == "__main__":
